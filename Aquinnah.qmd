@@ -22,8 +22,8 @@ editor: visual
 library(tidyverse)
 library(readxl)
 library(stringr)
-library(mgcv)
-library(gratia)
+library(cowplot)
+library(SETrNCBN) # https://github.com/laura-feher/NCBN_SETr
 ```
 
 ## 1. Get measurement dates
@@ -95,16 +95,38 @@ aq_data <- map(
        ~ .x %>% mutate(station = .y)) %>%
   map(., # re-arrange columns
       ~ .x %>%
-        select(site, station, direction, pin_position, date, pin_height))
+        select(site, station, direction, pin_position, date, pin_height)) %>%
+  map(., # exclude data from 2016 as per Dan's email
+      ~ .x %>% filter(date > as.Date("2016-12-31")))
+
+# fix switched directions at GH-E on 6/10/2022 as per Dan's email
+aq_GH_E_b <- aq_data %>%
+  pluck("GH-E") %>%
+  filter(direction == "a" & date == as.Date("2022-06-10")) %>%
+  mutate(direction = "b",
+         pin_height_corrected = pin_height) %>%
+  select(-pin_height)
+
+aq_GH_E_a <- aq_data %>%
+  pluck("GH-E")  %>%
+  filter(direction == "b" & date == as.Date("2022-06-10")) %>%
+  mutate(direction = "a",
+         pin_height_corrected = pin_height) %>%
+  select(-pin_height)
+
+aq_data <- aq_data %>%
+  modify_at("GH-E", ~ .x %>%
+              left_join(., aq_GH_E_a, by = c("site", "station", "direction", "pin_position", "date")) %>%
+              mutate(pin_height = if_else(!is.na(pin_height_corrected), pin_height_corrected, pin_height)) %>%
+              select(-pin_height_corrected) %>%
+              left_join(., aq_GH_E_b, by = c("site", "station", "direction", "pin_position", "date")) %>%
+              mutate(pin_height = if_else(!is.na(pin_height_corrected), pin_height_corrected, pin_height)) %>%
+              select(-pin_height_corrected))
 ```
 
 ## 3. Visual for QAQC of raw pin heights
 
 First I did a quick plot of the raw pin height data as a visual gut-check to make sure all the values look reasonable.
-
-::: callout-caution
-NOTE: It looks the directions L1-E (arm A) and R5-W (arm B) got switched at GH-E on 6/4/2021? Probably just a data entry error but may want to go back to the field data sheets and check.
-:::
 
 ```{r}
 #| message: false
@@ -124,23 +146,13 @@ aq_data %>%
         ylab("Raw pin height (mm)"))
 ```
 
-::: callout-important
-There is a huge jump between the first sampling in 2016 and the next date in 2019 (\~150 mm in total = \~50 mm/yr). Is this right? Typically, salt marshes in the NE have rates somewhere between 1-5 mm/yr. Is there some obvious biological reason for this jump that you know of? If not, I suspect that either a) the SET reader didn't read the ruler properly on the first measurement (they might have read out numbers in the 100s when they should have been in the 200s) or b) there is a data entry error for the first measurement and the values should be in the 200s instead.
-
-See the next sections where I calculated linear rates of change in 2 different ways:
-
--    With the values from the first date in the 100s - (sections labeled with uncorrected)
-
--    With 100 mm added to the first date to get the values to be in the 200s - (sections labeled with corrected)
-:::
-
-## 4. Calculate station-level cumulative change - uncorrected
+## 4. Calculate station-level cumulative change
 
 ```{r}
 #| message: false
 #| warning: false
 
-aq_cumu <- aq_data %>%
+aq_cumu_station <- aq_data %>%
   map(., ~.x %>% 
     group_by(site, station, direction, pin_position) %>%
     mutate(first_pin_height = pin_height[date == min(date[!is.na(pin_height)])]) %>%
@@ -155,14 +167,14 @@ aq_cumu <- aq_data %>%
            date_num = as.numeric(date - first_date)/365.25))
 ```
 
-## 5. Calculate station-level linear rates of change - uncorrected
+## 5. Calculate station-level linear rates of change
 
 ```{r}
 #| message: false
 #| warning: false
 
-# linear models including all data - uncorrected first date
-aq_linear_mod <- aq_cumu %>%
+# linear models for each station
+aq_linear_mod_station <- aq_cumu_station %>%
   map(., ~.x %>%
         nest(data = everything()) %>%
         mutate(lm_mod = map(data, ~lm(mean_station_cumu ~ date_num, data = .x)),
@@ -172,23 +184,20 @@ aq_linear_mod <- aq_cumu %>%
                rate_p = map_dbl(lm_mod_summary, ~.$coefficients[['date_num', 'Pr(>|t|)']]),
                rate_r2 = map_dbl(lm_mod_summary, ~.$r.squared)))
 
-aq_linear_mod_formatted <- aq_linear_mod %>%
-  map2(., names(.), ~.x %>%
-         mutate(site = "Aquinnah",
-                station = .y,
-                linear_rate = paste0(round(rate, 2), " mm/yr"),
-                SE = paste0("± ", round(rate_se, 2)),
-                R2 = format(round(rate_r2, 2), nsmall = 2),
-                p_val = format(rate_p, digits = 1)) %>%
-         select(station, linear_rate, SE, R2, p_val)) 
-
-aq_linear_mod_formatted %>%
-  bind_rows()
+# aq_linear_mod_station_formatted <- aq_linear_mod_station %>%
+#   map2(., names(.), ~.x %>%
+#          mutate(site = "Aquinnah",
+#                 station = .y,
+#                 linear_rate = format_rates(rate = rate, se = rate_se),
+#                 R2 = format_r2(r2 = rate_r2),
+#                 p_val = format_pval(p = rate_p)) %>%
+#          select(station, linear_rate, R2, p_val)) 
+# 
+# aq_linear_mod_station_formatted %>%
+#   bind_rows()
 ```
 
-## 6. Plot station-level cumulative change & rates - uncorrected
-
-Wow those rates are huge - I think something has to be off with the first measurement.
+## 6. Plot station-level cumulative change & rates
 
 ```{r}
 #| message: false
@@ -203,107 +212,128 @@ plot_fun <- function(df, rates = NULL, subtitle = NULL) {
     geom_point() +
     geom_errorbar(aes(x = date, ymin = mean_station_cumu - se_station_cumu, ymax = mean_station_cumu + se_station_cumu)) +
     stat_smooth(method = "lm") +
-    geom_text(data = rates, aes(x = as.Date("2017-01-01"), y = Inf, label = paste0("Rate: ", linear_rate, " (", SE, ")\n", "R2: ", R2, ", p: ", p_val)), vjust = 1.5) +
+    geom_text(data = rates, aes(x = as.Date("2020-01-01"), y = Inf, label = paste0("Rate: ", linear_rate, " (", SE, ")\n", "R2: ", R2, ", p: ", p_val)), vjust = 1.5) +
     labs(title = paste0("Aquinnah - ", name_lab),
          subtitle = subtitle) +
     ylab("Cumulative surface elevation change (mm)") +
     xlab("Date")
 }
 
-map2(aq_cumu, aq_linear_mod_formatted, ~plot_fun(df = .x, rates = .y, subtitle = "NOTE: initial values uncorrected"))
+map2(aq_cumu_station, aq_linear_mod_station_formatted, ~plot_fun(df = .x, rates = .y))
 ```
 
-## 7. Calculate station-level cumulative change - corrected
+## 7. Calculate site-level cumulative change
 
 ```{r}
 #| message: false
-#| warning: false
+#| warning: false  
 
-aq_cumu_corrected <- aq_data %>%
-  map(., ~.x %>% 
-    group_by(site, station, direction, pin_position) %>%
-    mutate(pin_height_corrected = if_else(date == min(date), pin_height + 100, pin_height)) %>%
-    mutate(first_pin_height = pin_height_corrected[date == min(date[!is.na(pin_height_corrected)])]) %>%
-    mutate(cumu = pin_height_corrected - first_pin_height) %>%
-    ungroup() %>%
-    group_by(site, station, direction, date) %>%
-    summarise(mean_direction_cumu = mean(cumu, na.rm = TRUE)) %>%
-    group_by(site, station, date) %>%
-    summarise(mean_station_cumu = mean(mean_direction_cumu, na.rm = TRUE),
-              se_station_cumu = sd(mean_direction_cumu)/sqrt(length(mean_direction_cumu))) %>%
-    mutate(first_date = date[date == min(date[!is.na(mean_station_cumu)])],
-           date_num = as.numeric(date - first_date)/365.25))
+aq_cumu_site <- aq_cumu_station %>% 
+  bind_rows() %>%
+  group_by(site, date) %>%
+  summarise(mean_site_cumu = mean(mean_station_cumu, na.rm = TRUE), 
+            se_site_cumu = sd(mean_station_cumu)/sqrt(length(mean_station_cumu))) %>%
+  mutate(first_date = date[date == min(date[!is.na(mean_site_cumu)])],
+         date_num = as.numeric(date - first_date)/365.25)
 ```
 
-## 8. Calculate station-level linear rates of change - corrected
+## 8. Calculate site-level linear rates of change
 
 ```{r}
-#| message: false
-#| warning: false
-
-# linear models including all data - corrected first date
-aq_linear_mod_corrected <- aq_cumu_corrected %>%
-  map(., ~.x %>%
+# linear model 
+aq_linear_mod_site <- aq_cumu_site %>%
         nest(data = everything()) %>%
-        mutate(lm_mod = map(data, ~lm(mean_station_cumu ~ date_num, data = .x)),
+        mutate(lm_mod = map(data, ~lm(mean_site_cumu ~ date_num, data = .x)),
                lm_mod_summary = map(lm_mod, ~summary(.x)),
+               intc = map_dbl(lm_mod, ~coefficients(.)[["(Intercept)"]]),
                rate = map_dbl(lm_mod, ~coefficients(.x)[['date_num']]),
                rate_se = map_dbl(lm_mod_summary, ~.$coefficients[['date_num', 'Std. Error']]),
                rate_p = map_dbl(lm_mod_summary, ~.$coefficients[['date_num', 'Pr(>|t|)']]),
-               rate_r2 = map_dbl(lm_mod_summary, ~.$r.squared)))
+               rate_r2 = map_dbl(lm_mod_summary, ~.$r.squared))
 
-aq_linear_mod_formatted_corrected <- aq_linear_mod_corrected %>%
-  map2(., names(.), ~.x %>%
-         mutate(site = "Aquinnah",
-                station = .y,
-                linear_rate = paste0(format(round(rate, 2), nsmall = 2), " mm/yr"),
-                SE = paste0("± ", round(rate_se, 2)),
-                R2 = format(round(rate_r2, 2), nsmall = 2),
-                p_val = format(rate_p, digits = 1)) %>%
-         select(station, linear_rate, SE, R2, p_val)) 
+aq_linear_mod_site_formatted <- aq_linear_mod_site %>%
+  mutate(site = "Aquinnah",
+         linear_rate = paste0(format_result_vals(rate), " ± ", format_result_vals(rate_se)),
+         R2 = format_result_vals(rate_r2),
+         p_val = case_when(rate_p > 0.05 ~ "ns",
+            rate_p <= 0.05 & rate_p > 0.01 ~ "p < 0.05",
+            rate_p <= 0.01 & rate_p > 0.001 ~ "p < 0.01",
+            rate_p <= 0.001 ~ "p < 0.001"),
+         R2_pval_plot = format_r2_pval_plot(rate, rate_se, rate_r2, rate_p)
+) %>%
+  select(-c(data, lm_mod, lm_mod_summary))
 
-aq_linear_mod_formatted_corrected %>%
+aq_linear_mod_site_formatted %>%
+  select(site, linear_rate, R2, p_val) %>%
   bind_rows()
 ```
 
-## 9. Plot station-level cumulative change & rates - corrected
-
-OK these rates are much more believable.
+## 9. Plot site-level cumulative change & rates
 
 ```{r}
 #| message: false
 #| warning: false
 
-map2(aq_cumu_corrected, aq_linear_mod_formatted_corrected, ~plot_fun(df = .x, rates = .y, subtitle = "NOTE: initial values corrected"))
+ggplot(data = aq_cumu_site, aes(x = date, y = mean_site_cumu)) +
+    geom_point() +
+    geom_errorbar(aes(x = date, ymin = mean_site_cumu - se_site_cumu, ymax = mean_site_cumu + se_site_cumu)) +
+    stat_smooth(method = "lm") +
+    geom_text(data = aq_linear_mod_site_formatted, aes(x = as.Date("2020-01-01"), y = Inf, label = paste0("Rate: ", linear_rate, " (", SE, ")\n", "R2: ", R2, ", p: ", p_val)), vjust = 1.5) +
+    labs(title = paste0("Aquinnah")) +
+    ylab("Cumulative surface elevation change (mm)") +
+    xlab("Date")
 ```
 
+## 10. Plot long-term & recent SLR
+
 ```{r}
-#| eval: false
 #| message: false
 #| warning: false
-#| include: false
 
-# gam models
-f<-aq_cumu %>%
-  map(., ~.x %>%
-        nest(data = everything()) %>%
-        mutate(gam_mod = map(data, ~gam(mean_station_cumu ~ s(date_num, k = 5), select = TRUE, method = "REML", data = .x)),
-               gam_mod_summary = map(gam_mod, ~summary(.x)),
-               derivs = map(gam_mod, ~derivatives(.x, n = 200)),
-               rate = map_dbl(derivs, ~mean(.x$.derivative))))
+whoi_slr <- readRDS(here::here("data", "woods_hole_slr.Rds"))
+
+whoi_slr_line_long <- scale_slr_line(rate = whoi_slr$whoi_slr_long$slr_rate, int = aq_linear_mod_site$intc, first_date = first(aq_cumu_site$date))
+
+whoi_slr_line_recent <- scale_slr_line(rate = whoi_slr$whoi_slr_recent$slr_rate, int = aq_linear_mod_site$intc, first_date = first(aq_cumu_site$date))
+
+
+ggplot(data = aq_cumu_site, aes(x = date, y = mean_site_cumu))+
+  geom_point() +
+  geom_errorbar(aes(x = date, ymin = mean_site_cumu - se_site_cumu, ymax = mean_site_cumu + se_site_cumu)) +
+  stat_smooth(method = "lm") +
+  geom_abline(aes(slope = whoi_slr_line_long$scaled_slope, intercept = whoi_slr_line_long$scaled_int)) +
+  geom_abline(aes(slope = whoi_slr_line_recent$scaled_slope, intercept = whoi_slr_line_recent$scaled_int), color = "orange") +
+  geom_abline(aes(slope = whoi_slr_int_high$scaled_slope, intercept = whoi_slr_int_high$scaled_int), color = "red") +
+  geom_text(data = aq_linear_mod_site_formatted, aes(x = as.Date("2020-01-01"), y = Inf, label = paste0("Rate: ", linear_rate, " (", SE, ")\n", "R2: ", R2, ", p: ", p_val)), vjust = 1.5) +
+  labs(title = paste0("Aquinnah")) +
+  ylab("Cumulative surface elevation change (mm)") +
+  xlab("Date") 
 ```
 
+## 11. Plot future SLR
+
 ```{r}
-#| eval: false
-#| message: false
-#| warning: false
-#| include: false
-aq_cumu %>%
-  map2(., names(.), ~ggplot(data = .x, aes(x = date, y = mean_station_cumu)) +
-        geom_point() +
-        stat_smooth(method = "gam", formula = y ~ s(x, k = 5), method.args = list(select = TRUE, method = "REML")) +
-        labs(title = paste0("Aquinnah - ", .y)) +
-        ylab("Cumulative surface elevation change (mm)") +
-        xlab("Date") 
-         )
+
+sysfonts::font_add_google("Didact Gothic")
+showtext::showtext_auto()
+
+whoi_future_slr <- readRDS(here::here("data", "woods_hole_future_slr.Rds"))
+
+whoi_future_slr_lines <- whoi_future_slr$whoi_slr_future_rates %>%
+  mutate(future_slr_lines = map(rsl_rate_mm_yr, ~scale_slr_line(rate = .x, int = aq_linear_mod_site$intc, first_date = first(aq_cumu_site$date)))) %>%
+  select(scenario_name, future_slr_lines) %>%
+  mutate(scaled_slope = map_dbl(future_slr_lines, ~.x$scaled_slope),
+         scaled_int = map_dbl(future_slr_lines, ~.x$scaled_int))
+
+ggplot(data = aq_cumu_site, aes(x = date, y = mean_site_cumu))+
+  geom_point() +
+  geom_errorbar(aes(x = date, ymin = mean_site_cumu - se_site_cumu, ymax = mean_site_cumu + se_site_cumu)) +
+  stat_smooth(method = "lm", formula = y ~ x) +
+  geom_abline(data = whoi_future_slr_lines, aes(slope = scaled_slope, intercept = scaled_int, color = scenario_name)) +
+  geom_text(data = aq_linear_mod_site_formatted, aes(x = as.Date("2020-01-01"), y = Inf, label = paste0("Rate: ", linear_rate, " (", SE, ")\n", "R2: ", R2, ", p: ", p_val)), vjust = 1.5) +
+  labs(title = paste0("Aquinnah")) +
+  ylab("Cumulative surface elevation change (mm)") +
+  xlab("Date") +
+  theme(text = element_text(family = "Didact Gothic")) +
+  theme_mv_sets()
 ```
