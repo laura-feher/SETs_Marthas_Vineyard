@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Laura Feher">
-<meta name="dcterms.date" content="2025-06-23">
+<meta name="dcterms.date" content="2025-06-25">
 
 <title>Woods Hole SLR Data &amp; Rates</title>
 <style>
@@ -3092,10 +3092,9 @@ vertical-align: -.125em;
   <li><a href="#get-slr-data-from-the-woods-hole-noaa-gauge" id="toc-get-slr-data-from-the-woods-hole-noaa-gauge" class="nav-link active" data-scroll-target="#get-slr-data-from-the-woods-hole-noaa-gauge">1. Get SLR data from the Woods Hole NOAA gauge</a></li>
   <li><a href="#calculate-long-term-slr" id="toc-calculate-long-term-slr" class="nav-link" data-scroll-target="#calculate-long-term-slr">2. Calculate long-term SLR</a></li>
   <li><a href="#calculate-recent-slr" id="toc-calculate-recent-slr" class="nav-link" data-scroll-target="#calculate-recent-slr">3. Calculate recent SLR</a></li>
-  <li><a href="#save-slr-data-and-rates-to-file" id="toc-save-slr-data-and-rates-to-file" class="nav-link" data-scroll-target="#save-slr-data-and-rates-to-file">4. Save SLR data and rates to file</a></li>
-  <li><a href="#get-future-slr-data-from-the-sweet-et-al.-2022-report" id="toc-get-future-slr-data-from-the-sweet-et-al.-2022-report" class="nav-link" data-scroll-target="#get-future-slr-data-from-the-sweet-et-al.-2022-report">5. Get future SLR data from the Sweet et al. 2022 report</a></li>
-  <li><a href="#calculate-future-slr-for-2090---2100" id="toc-calculate-future-slr-for-2090---2100" class="nav-link" data-scroll-target="#calculate-future-slr-for-2090---2100">6. Calculate future SLR for 2090 - 2100</a></li>
-  <li><a href="#save-future-slr-data-and-rates-to-file" id="toc-save-future-slr-data-and-rates-to-file" class="nav-link" data-scroll-target="#save-future-slr-data-and-rates-to-file">7. Save future SLR data and rates to file</a></li>
+  <li><a href="#get-future-slr-data-from-the-sweet-et-al.-2022-report" id="toc-get-future-slr-data-from-the-sweet-et-al.-2022-report" class="nav-link" data-scroll-target="#get-future-slr-data-from-the-sweet-et-al.-2022-report">4. Get future SLR data from the Sweet et al. 2022 report</a></li>
+  <li><a href="#calculate-future-slr-for-2090---2100" id="toc-calculate-future-slr-for-2090---2100" class="nav-link" data-scroll-target="#calculate-future-slr-for-2090---2100">5. Calculate future SLR for 2090 - 2100</a></li>
+  <li><a href="#save-slr-data-and-rates-to-file" id="toc-save-slr-data-and-rates-to-file" class="nav-link" data-scroll-target="#save-slr-data-and-rates-to-file">6. Save SLR data and rates to file</a></li>
   </ul>
 </nav>
 </div>
@@ -3128,7 +3127,7 @@ vertical-align: -.125em;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">June 23, 2025</p>
+      <p class="date">June 25, 2025</p>
     </div>
   </div>
   
@@ -3231,56 +3230,38 @@ vertical-align: -.125em;
 </div>
 </div>
 </section>
-<section id="save-slr-data-and-rates-to-file" class="level2">
-<h2 class="anchored" data-anchor-id="save-slr-data-and-rates-to-file">4. Save SLR data and rates to file</h2>
-<div class="cell">
-<details class="code-fold">
-<summary>Code</summary>
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(</span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;whoi_slr_data&quot;</span> <span class="ot">=</span> whoi_slr_data,</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;whoi_slr_long&quot;</span> <span class="ot">=</span> whoi_slr_long,</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;whoi_slr_long_formatted&quot;</span> <span class="ot">=</span> whoi_slr_long_formatted,</span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;whoi_slr_recent&quot;</span> <span class="ot">=</span> whoi_slr_recent,</span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;whoi_slr_recent_formatted&quot;</span> <span class="ot">=</span> whoi_slr_recent_formatted</span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  ),</span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>  here<span class="sc">::</span><span class="fu">here</span>(<span class="st">&quot;data&quot;</span>, <span class="st">&quot;woods_hole_slr.Rds&quot;</span>)</span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</details>
-</div>
-</section>
 <section id="get-future-slr-data-from-the-sweet-et-al.-2022-report" class="level2">
-<h2 class="anchored" data-anchor-id="get-future-slr-data-from-the-sweet-et-al.-2022-report">5. Get future SLR data from the Sweet et al. 2022 report</h2>
+<h2 class="anchored" data-anchor-id="get-future-slr-data-from-the-sweet-et-al.-2022-report">4. Get future SLR data from the Sweet et al. 2022 report</h2>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>whoi_future_slr_data <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  here<span class="sc">::</span><span class="fu">here</span>(</span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;data&quot;</span>,</span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Sea_Level_Rise_Datasets_2022&quot;</span>,</span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;SLR_TF U.S. Sea Level Projections.csv&quot;</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  ),</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">skip =</span> <span class="dv">17</span>,</span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">col_select =</span> <span class="fu">c</span>(<span class="st">&quot;PSMSL Site&quot;</span>, <span class="st">&quot;Scenario&quot;</span>, <span class="st">&quot;RSL2005 (cm)&quot;</span><span class="sc">:</span><span class="st">&quot;RSL2100 (cm)&quot;</span>)</span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>whoi_future_slr_data <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  here<span class="sc">::</span><span class="fu">here</span>(</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;data&quot;</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Sea_Level_Rise_Datasets_2022&quot;</span>,</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;SLR_TF U.S. Sea Level Projections.csv&quot;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">skip =</span> <span class="dv">17</span>,</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">col_select =</span> <span class="fu">c</span>(<span class="st">&quot;PSMSL Site&quot;</span>, <span class="st">&quot;Scenario&quot;</span>, <span class="st">&quot;RSL2005 (cm)&quot;</span><span class="sc">:</span><span class="st">&quot;RSL2100 (cm)&quot;</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 <p>Source: 2022 Technical Report | Resources – U.S. Sea Level Change <a href="https://earth.gov/sealevel/us/resources/2022-sea-level-rise-technical-report/" class="uri">https://earth.gov/sealevel/us/resources/2022-sea-level-rise-technical-report/</a></p>
 </section>
 <section id="calculate-future-slr-for-2090---2100" class="level2">
-<h2 class="anchored" data-anchor-id="calculate-future-slr-for-2090---2100">6. Calculate future SLR for 2090 - 2100</h2>
+<h2 class="anchored" data-anchor-id="calculate-future-slr-for-2090---2100">5. Calculate future SLR for 2090 - 2100</h2>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>whoi_future_slr_rates <span class="ot">&lt;-</span> whoi_future_slr_data <span class="sc">%&gt;%</span> </span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="st">`</span><span class="at">PSMSL Site</span><span class="st">`</span> <span class="sc">==</span> <span class="st">&quot;WOODS_HOLE&quot;</span> <span class="sc">&amp;</span> <span class="fu">str_detect</span>(Scenario, <span class="st">&quot;MED&quot;</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scenario_name =</span> <span class="fu">c</span>(<span class="st">&quot;low&quot;</span>, <span class="st">&quot;int_low&quot;</span>, <span class="st">&quot;int&quot;</span>, <span class="st">&quot;int_high&quot;</span>, <span class="st">&quot;high&quot;</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">rsl_2090_mm =</span> <span class="st">`</span><span class="at">RSL2090 (cm)</span><span class="st">`</span> <span class="sc">*</span> <span class="dv">10</span>, </span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>         <span class="at">rsl_2100_mm =</span> <span class="st">`</span><span class="at">RSL2100 (cm)</span><span class="st">`</span> <span class="sc">*</span> <span class="dv">10</span>,</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>         <span class="at">rsl_rate_mm_yr =</span> (rsl_2100_mm <span class="sc">-</span> rsl_2090_mm)<span class="sc">/</span><span class="dv">10</span>) <span class="sc">%&gt;%</span>   </span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="st">`</span><span class="at">PSMSL Site</span><span class="st">`</span>, Scenario, scenario_name, rsl_rate_mm_yr)  </span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>whoi_future_slr_rates</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>whoi_future_slr_rates <span class="ot">&lt;-</span> whoi_future_slr_data <span class="sc">%&gt;%</span> </span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="st">`</span><span class="at">PSMSL Site</span><span class="st">`</span> <span class="sc">==</span> <span class="st">&quot;WOODS_HOLE&quot;</span> <span class="sc">&amp;</span> <span class="fu">str_detect</span>(Scenario, <span class="st">&quot;MED&quot;</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">scenario_name =</span> <span class="fu">c</span>(<span class="st">&quot;low&quot;</span>, <span class="st">&quot;int_low&quot;</span>, <span class="st">&quot;int&quot;</span>, <span class="st">&quot;int_high&quot;</span>, <span class="st">&quot;high&quot;</span>)) <span class="sc">%&gt;%</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">rsl_2090_mm =</span> <span class="st">`</span><span class="at">RSL2090 (cm)</span><span class="st">`</span> <span class="sc">*</span> <span class="dv">10</span>, </span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>         <span class="at">rsl_2100_mm =</span> <span class="st">`</span><span class="at">RSL2100 (cm)</span><span class="st">`</span> <span class="sc">*</span> <span class="dv">10</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>         <span class="at">rsl_rate_mm_yr =</span> (rsl_2100_mm <span class="sc">-</span> rsl_2090_mm)<span class="sc">/</span><span class="dv">10</span>) <span class="sc">%&gt;%</span>   </span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="st">`</span><span class="at">PSMSL Site</span><span class="st">`</span>, Scenario, scenario_name, rsl_rate_mm_yr)  </span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>whoi_future_slr_rates</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 <div class="cell-output cell-output-stdout">
 <pre><code># A tibble: 5 × 4
@@ -3294,18 +3275,23 @@ vertical-align: -.125em;
 </div>
 </div>
 </section>
-<section id="save-future-slr-data-and-rates-to-file" class="level2">
-<h2 class="anchored" data-anchor-id="save-future-slr-data-and-rates-to-file">7. Save future SLR data and rates to file</h2>
+<section id="save-slr-data-and-rates-to-file" class="level2">
+<h2 class="anchored" data-anchor-id="save-slr-data-and-rates-to-file">6. Save SLR data and rates to file</h2>
 <div class="cell">
 <details class="code-fold">
 <summary>Code</summary>
-<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;whoi_slr_future_data&quot;</span> <span class="ot">=</span> whoi_future_slr_data,</span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;whoi_slr_future_rates&quot;</span> <span class="ot">=</span> whoi_future_slr_rates</span>
-<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>  ),</span>
-<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>  here<span class="sc">::</span><span class="fu">here</span>(<span class="st">&quot;data&quot;</span>, <span class="st">&quot;woods_hole_future_slr.Rds&quot;</span>)</span>
-<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;whoi_slr_data&quot;</span> <span class="ot">=</span> whoi_slr_data,</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;whoi_slr_long&quot;</span> <span class="ot">=</span> whoi_slr_long,</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;whoi_slr_long_formatted&quot;</span> <span class="ot">=</span> whoi_slr_long_formatted,</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;whoi_slr_recent&quot;</span> <span class="ot">=</span> whoi_slr_recent,</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;whoi_slr_recent_formatted&quot;</span> <span class="ot">=</span> whoi_slr_recent_formatted,</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;whoi_slr_future_data&quot;</span> <span class="ot">=</span> whoi_future_slr_data,</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;whoi_slr_future_rates&quot;</span> <span class="ot">=</span> whoi_future_slr_rates</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>  here<span class="sc">::</span><span class="fu">here</span>(<span class="st">&quot;data&quot;</span>, <span class="st">&quot;woods_hole_slr.Rds&quot;</span>)</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </details>
 </div>
 </section>
