@@ -1,0 +1,358 @@
+---
+title: "Felix Neck SETs"
+subtitle: "Produced for Martha’s Vineyard Commission" 
+date: "`r Sys.Date()`"
+author:
+  - name: Laura Feher
+    affiliations: 
+    - name: NPS NCBN I&M Network
+format: html
+toc: true 
+code-fold: true
+code-overflow: wrap
+embed-resources: true
+execute:
+  message: false
+  warning: false
+editor: visual
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(tidyverse)
+library(readxl)
+library(stringr)
+
+ggthemr::ggthemr_reset()
+
+source("C:/Users/lfeher/OneDrive - DOI/SETs_Marthas_Vineyard/R/format_mv_results.R", echo = TRUE)
+```
+
+## 1. Get measurement dates
+
+```{r}
+#| label: Get-measurement-dates
+
+# Get measurement dates from the first row of the excel sheets
+fn_dates <- map(
+  seq(1, 3, by = 1),
+  ~
+    read_xlsx(
+      here::here("data-raw", "Felix Neck 2025-5-15.xlsx"),
+      sheet = paste0("Sheet", .x),
+      n_max = 1
+    ) %>%
+    pivot_longer(., cols = everything()) %>%
+    filter(str_detect(str_to_sentence(value), "Measure")) %>%
+    mutate(date_num = str_sub(name, 1, 5)) %>%
+    pluck("date_num")
+) %>%
+  set_names(., c("FN-NW", "FN-M", "FN-SE"))
+```
+
+## 2. Load and transform pin heights
+
+```{r}
+#| label: Load-and-transform-pin-heights
+
+# Load and transform pin height data for each of the stations
+fn_raw_data <- map(
+  seq(1, 3, by = 1),
+  ~ read_xlsx( # load sheets 1-3
+    here::here("data-raw", "Felix Neck 2025-5-15.xlsx"),
+    sheet = paste0("Sheet", .x),
+    skip = 1, # skip first row
+    n_max = 38 # ignore last rows with totals
+  ) %>%
+    select(-c(1)) %>%
+    select(starts_with("Hole") | starts_with("Measure")) # select the pin position (aka Hole) and pin height columns
+) %>%
+  set_names(., c("FN-NW", "FN-M", "FN-SE")) %>% # set the station names
+  map2(., fn_dates, ~ set_names(., c("pin_position", .y))) %>% # set the name of the pin position column to 'pin_position` and set the names of the pin height columns to their respective dates
+  map( # fill in the SET arm direction column
+    .,
+    ~ .x %>%
+      drop_na(.) %>%
+      mutate(direction = c( 
+        rep("a", 9), rep("b", 9), rep("c", 9), rep("d", 9)
+      ))
+    %>%
+      pivot_longer( # pivot the pin position and pin height columns into long format
+        .,
+        cols = -c(pin_position, direction),
+        names_to = "date",
+        values_to = "pin_height"
+      ) %>%
+      mutate(
+        pin_position = as.character(pin_position),
+        date = as.Date(as.numeric(date), format = "%Y-%m-%d", origin = "1899-12-30"), # convert date numbers to date format
+        pin_height = pin_height * 10, # convert to mm
+        site = "Felix Neck" # set site name
+      )
+  ) %>%
+  map2(., # create a column with the station name 
+       names(.), 
+       ~ .x %>% mutate(station = .y)) %>%
+  map(., # re-arrange columns
+      ~ .x %>%
+        select(site, station, direction, pin_position, date, pin_height))
+```
+
+## 3. Visual for QAQC of raw pin heights
+
+First I did a quick plot of the raw pin height data as a visual gut-check to make sure all the values look reasonable.
+
+```{r}
+#| label: Visual-for-QAQC-of-raw-pin-heights
+
+# quick plot for a visual gut-check to make sure all pin height values look reasonable
+
+fn_raw_data %>%
+  map2(., names(.), ~ .x %>%
+        mutate(direction_name = paste0("Arm: ", direction)) %>%
+        ggplot(., aes(x = date, y = pin_height)) +
+        geom_point(aes(color = pin_position)) +
+        facet_wrap(~direction_name) +
+        labs(title = paste0("Felix Neck - ", .y),
+             color = "Pin position") +
+        xlab("Date") +
+        ylab("Raw pin height (mm)"))
+```
+
+::: callout-caution
+For station FN-SE, arm R5-W, pin 7 on 6/15/2021 - the pin height was recorded as "81" cm (810 mm) but I think it should probably 8.1 cm (81 mm). I'll correct it before calculating cumulative change in the next step
+:::
+
+### 3b. Correct pin issue and re-plot raw pin heights
+
+```{r}
+#| label: Correct-pin-issue-and-re-plot-raw-pin-heights
+
+fn_data <- fn_raw_data %>%
+  map(., ~.x %>%
+        mutate(pin_height = if_else(station == "FN-SE" & direction == "b" & pin_position == "7" & date == as.Date("2021-06-15"), pin_height/10, pin_height)))
+
+fn_data %>%
+  map2(., names(.), ~ .x %>%
+        mutate(direction_name = paste0("Arm: ", direction)) %>%
+        ggplot(., aes(x = date, y = pin_height)) +
+        geom_point(aes(color = pin_position)) +
+        facet_wrap(~direction_name) +
+        labs(title = paste0("Felix Neck - ", .y),
+             color = "Pin position") +
+        xlab("Date") +
+        ylab("Raw pin height (mm)"))
+```
+
+## 4. Calculate station-level cumulative change
+
+```{r}
+#| label: Calculate-station-level-cumulative-change
+
+fn_cumu_station <- fn_data %>%
+  map(., ~.x %>% 
+    group_by(site, station, direction, pin_position) %>%
+    mutate(first_pin_height = pin_height[date == min(date[!is.na(pin_height)])]) %>%
+    mutate(cumu = pin_height - first_pin_height) %>%
+    ungroup() %>%
+    group_by(site, station, direction, date) %>%
+    summarise(mean_direction_cumu = mean(cumu, na.rm = TRUE)) %>%
+    group_by(site, station, date) %>%
+    summarise(mean_station_cumu = mean(mean_direction_cumu, na.rm = TRUE),
+              se_station_cumu = sd(mean_direction_cumu)/sqrt(length(mean_direction_cumu))) %>%
+    mutate(first_date = date[date == min(date[!is.na(mean_station_cumu)])],
+           date_num = as.numeric(date - first_date)/365.25))
+```
+
+## 5. Calculate station-level linear rates of change
+
+```{r}
+#| label: Calculate-station-level-linear-rates-of-change
+
+# linear models for each station
+fn_linear_mod_station <- fn_cumu_station %>%
+  map(., ~.x %>%
+        group_by(site, station) %>%
+        nest(data = -c(site, station)) %>%
+        mutate(
+          lm_mod = map(data, ~lm(mean_station_cumu ~ date_num, data = .x)),
+          tidied = map(lm_mod, broom::tidy),
+          glanced = map(lm_mod, broom::glance)
+        ) %>%
+        unnest(tidied, glanced) %>%
+        mutate(
+          linear_rate = paste0(
+            format_result_vals(estimate),
+            " ± ",
+            format_result_vals(std.error)
+          ),
+          R2 = format_r2(adj.r.squared),
+          p_val = format_pval(p.value)
+        )
+  )
+
+fn_linear_mod_station %>%
+  map(., ~ .x %>%
+      filter(term == "date_num") %>%
+      select(site, station, linear_rate, R2, p_val)
+  ) %>%
+  bind_rows()
+```
+
+## 6. Plot station-level cumulative change & rates
+
+```{r}
+#| label: Plot-station-level-cumulative-change-&-rates
+
+map2(
+  fn_cumu_station,
+  fn_linear_mod_station,
+  ~ ggplot(data = .x, aes(x = date, y = mean_station_cumu)) +
+    geom_errorbar(
+      aes(
+        x = date,
+        ymin = mean_station_cumu - se_station_cumu,
+        ymax = mean_station_cumu + se_station_cumu
+      )
+    ) +
+    geom_point() +
+    geom_smooth(
+      method = "lm",
+      formula = y ~ x,
+      fullrange = TRUE,
+      se = TRUE
+    ) +
+    geom_text(
+      data = .y %>%
+        filter(term == "date_num"),
+      aes(
+        x = as.Date("2020-01-01"),
+        y = Inf,
+        label = paste0(
+          "Rate: ",
+          linear_rate,
+          " mm/yr"
+        )
+      ),
+      vjust = 1.5
+    ) +
+    geom_text(
+      data = .y %>%
+        filter(term == "date_num"),
+      aes(
+        x = as.Date("2020-01-01"),
+        y = Inf,
+        label = paste0("R2: ", R2, ", ", p_val)
+      ),
+      vjust = 3
+    ) +
+    labs(title = paste0(.x$site, " - ", .x$station)) +
+    scale_x_date(
+      date_breaks = "1 year",
+      date_labels = "%Y",
+      name = "Date"
+    ) +
+    scale_y_continuous(name = "Cumulative surface elevation change (mm)")
+)
+```
+
+## 7. Calculate site-level cumulative change
+
+```{r}
+#| label: Calculate-site-level-cumulative-change
+
+fn_cumu_site <- fn_cumu_station %>%
+  bind_rows() %>% 
+  group_by(site, date) %>%
+  summarise(mean_site_cumu = mean(mean_station_cumu, na.rm = TRUE),
+            se_site_cumu = sd(mean_station_cumu)/sqrt(length(mean_station_cumu))) %>%
+  mutate(first_date = date[date == min(date[!is.na(mean_site_cumu)])],
+         date_num = as.numeric(date - first_date)/365.25)
+```
+
+## 8. Calculate site-level linear rates of change
+
+```{r}
+#| label: Calculate-site-level-linear-rates-of-change
+
+# linear model 
+fn_linear_mod_site <- fn_cumu_site %>%
+  nest(data = -site) %>%
+  mutate(lm_mod = map(data, ~lm(mean_site_cumu ~ date_num, data = .x)),
+         tidied = map(lm_mod, broom::tidy),
+         glanced = map(lm_mod, broom::glance)) %>%
+  unnest(tidied, glanced) %>%
+  mutate(linear_rate = paste0(format_result_vals(estimate), " ± ",  format_result_vals(std.error)),
+          R2 = format_r2(adj.r.squared),
+          p_val = format_pval(p.value))
+
+fn_linear_mod_site %>%
+  filter(term == "date_num") %>%
+  select(site, linear_rate, R2, p_val)
+```
+
+## 9. Plot site-level cumulative change & rates
+
+```{r}
+#| label: Plot-site-level-cumulative-change-&-rates
+#| fig.showtext: true
+
+ggplot(data = fn_cumu_site, aes(x = date, y = mean_site_cumu)) +
+    geom_errorbar(
+      aes(
+        x = date,
+        ymin = mean_site_cumu - se_site_cumu,
+        ymax = mean_site_cumu + se_site_cumu
+      )
+    ) +
+    geom_point() +
+    geom_smooth(
+      method = "lm",
+      formula = y ~ x,
+      fullrange = TRUE,
+      se = TRUE
+    ) +
+    geom_text(
+      data = fn_linear_mod_site %>%
+        filter(term == "date_num"),
+      aes(
+        x = as.Date("2020-01-01"),
+        y = Inf,
+        label = paste0(
+          "Rate: ",
+          linear_rate,
+          " mm/yr"
+        )
+      ),
+      vjust = 1.5
+    ) +
+    geom_text(
+      data = fn_linear_mod_site %>%
+        filter(term == "date_num"),
+      aes(
+        x = as.Date("2020-01-01"),
+        y = Inf,
+        label = paste0("R2: ", R2, ", ", p_val)
+      ),
+      vjust = 3
+    ) +
+    labs(title = "Felix Neck") +
+    scale_x_date(
+      date_breaks = "1 year",
+      date_labels = "%Y",
+      name = "Date"
+    ) +
+    scale_y_continuous(name = "Cumulative surface elevation change (mm)")
+```
+
+## 10. Save transformed data & model results
+
+```{r}
+#| label: Save-transformed-data-&-model-results  
+ 
+felix_neck <- mget(ls(pattern = "fn", envir = .GlobalEnv), envir = .GlobalEnv) 
+
+saveRDS(felix_neck, here::here("data", "felix_neck.rds"))
+```

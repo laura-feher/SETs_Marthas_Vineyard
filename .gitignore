@@ -50,3 +50,5 @@ rsconnect/
 
 # Data folder
 data/**
+
+/.quarto/

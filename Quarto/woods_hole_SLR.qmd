@@ -112,7 +112,7 @@ whoi_slr_recent_formatted %>%
 
 whoi_future_slr_data <- read_csv(
   here::here(
-    "data",
+    "data-raw",
     "Sea_Level_Rise_Datasets_2022",
     "SLR_TF U.S. Sea Level Projections.csv"
   ),

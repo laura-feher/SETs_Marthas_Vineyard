@@ -24,9 +24,8 @@ editor: visual
 library(tidyverse)
 library(readxl)
 library(stringr)
-library(cowplot)
-library(showtext)
-library(NPSETr) # https://github.com/laura-feher/NPSETr
+
+ggthemr::ggthemr_reset()
 
 source("C:/Users/lfeher/OneDrive - DOI/SETs_Marthas_Vineyard/R/format_mv_results.R", echo = TRUE)
 ```
@@ -117,7 +116,7 @@ aq_GH_E_a <- aq_raw_data %>%
          pin_height_corrected = pin_height) %>%
   select(-pin_height)
 
-aq_raw_data <- aq_raw_data %>%
+aq_data <- aq_raw_data %>%
   modify_at("GH-E", ~ .x %>%
               left_join(., aq_GH_E_a, by = c("site", "station", "direction", "pin_position", "date")) %>%
               mutate(pin_height = if_else(!is.na(pin_height_corrected), pin_height_corrected, pin_height)) %>%
@@ -138,7 +137,9 @@ First I did a quick plot of the raw pin height data as a visual gut-check to mak
 
 # quick plot for a visual gut-check to make sure all pin height values look reasonable
 
-aq_raw_data %>%
+ggthemr::ggthemr_reset()
+
+aq_data %>%
   map2(., names(.), ~ .x %>%
         mutate(direction_name = paste0("Arm: ", direction)) %>%
         ggplot(., aes(x = date, y = pin_height)) +
@@ -155,7 +156,7 @@ aq_raw_data %>%
 ```{r}
 #| label: Calculate-station-level-cumulative-change
 
-aq_cumu_station <- aq_raw_data %>%
+aq_cumu_station <- aq_data %>%
   map(., ~.x %>% 
     group_by(site, station, direction, pin_position) %>%
     mutate(first_pin_height = pin_height[date == min(date[!is.na(pin_height)])]) %>%
@@ -351,123 +352,12 @@ ggplot(data = aq_cumu_site, aes(x = date, y = mean_site_cumu)) +
     scale_y_continuous(name = "Cumulative surface elevation change (mm)")
 ```
 
-## 10. Plot long-term & recent SLR
+## 10. Save transformed data & model results
 
 ```{r}
-#| label: Plot-long-term-&-recent-SLR
+#| label: Save-transformed-data-&-model-results
 
-whoi_slr <- readRDS(here::here("data", "woods_hole_slr.Rds"))
+aquinnah <- mget(ls(pattern = "aq", envir = .GlobalEnv), envir = .GlobalEnv)
 
-plot_fun_slr_current <- function(df, rates = NULL, base_size = 12, dark_text = "#1A242F") {
-  
-  mid_text <-  monochromeR::generate_palette(dark_text, "go_lighter", n_colours = 5)[2]
-  light_text <-  monochromeR::generate_palette(dark_text, "go_lighter", n_colours = 5)[3]
-  
-  first_date <- first(df$date)
-  last_date <- last(df$date)
-  width <- .2 * (as.numeric(max(df$date)-min(df$date))/length(df$date))
-  
-  new_first_date <- data.frame(
-    x = seq(first(aq_cumu_site$date)-200, last(aq_cumu_site$date)+200, by = 1)) %>%
-  mutate(date_num = as.numeric(x - first(aq_cumu_site$date))/365.25,
-         x2 = aq_linear_mod_site$intc + aq_linear_mod_site$rate * date_num) %>%
-  summarise(new_first_date_num = first(x2),
-            new_first_date = first(x)) 
-  
-  whoi_slr_line_long <- SETrNCBN::scale_slr_line(rate = whoi_slr$whoi_slr_long$slr_rate, int = new_first_date$new_first_date_num, first_date = new_first_date$new_first_date)
-  
-  whoi_slr_line_recent <- SETrNCBN::scale_slr_line(rate = whoi_slr$whoi_slr_recent$slr_rate, int = new_first_date$new_first_date_num, first_date = new_first_date$new_first_date)
-  
-  whoi_slr_line_future_intlow <- SETrNCBN::scale_slr_line(rate = whoi_slr$whoi_slr_future_rates$rsl_rate_mm_yr[whoi_slr$whoi_slr_future_rates$scenario_name == "int_low"], int = new_first_date$new_first_date_num, first_date = new_first_date$new_first_date)
-  
-  whoi_slr_line_future_int <- SETrNCBN::scale_slr_line(rate = whoi_slr$whoi_slr_future_rates$rsl_rate_mm_yr[whoi_slr$whoi_slr_future_rates$scenario_name == "int"], int = new_first_date$new_first_date_num, first_date = new_first_date$new_first_date)
-  
-  whoi_slr_line_future_inthigh <- SETrNCBN::scale_slr_line(rate = whoi_slr$whoi_slr_future_rates$rsl_rate_mm_yr[whoi_slr$whoi_slr_future_rates$scenario_name == "int_high"], int = new_first_date$new_first_date_num, first_date = new_first_date$new_first_date)
-  
-  lines <- list(whoi_slr_line_long, whoi_slr_line_recent, whoi_slr_line_future_intlow, whoi_slr_line_future_int, whoi_slr_line_future_inthigh) %>%
-    bind_rows(., .id = "type") %>%
-    mutate(type = case_when(type == 1 ~ "long-term SLR", 
-                            type == 2 ~ "recent SLR",
-                            type == 3 ~ "int-low",
-                            type == 4 ~ "int",
-                            type == 5 ~ "int-high"))
-
-  slr_labs <- bind_rows(whoi_slr$whoi_slr_long_formatted, whoi_slr$whoi_slr_recent_formatted) %>% 
-    mutate(slr_rate = case_when(!is.na(slr_rate_long) ~ slr_rate_long, 
-                                !is.na(slr_rate_recent) ~ slr_rate_recent),
-      type = case_when(!is.na(slr_rate_long) ~ "long-term SLR", 
-                       !is.na(slr_rate_recent) ~ "recent SLR")) %>%
-    select(-c(slr_rate_long, slr_rate_recent))
-  
-  if (rates$rate_p > 0.05) {
-    eq <- substitute(
-      expr = paste("Rate:  ", a, " ± ", b, " mm/yr; ", italic("r")^2, " = ", r2, ", ", italic("p"), " = ns"),
-      env = list(a = format_result_vals(rates$rate), b = format_result_vals(rates$rate_se), r2 = format_r2(rates$rate_r2))
-    )
-  } else {
-    eq <- substitute(
-      expr = paste("Rate:  ", a, " ± ", b, " mm/yr; ", italic("r")^2, " = ", r2, ", ", italic("p"), " ", p_val),
-      env = list(a = format_result_vals(rates$rate), b = format_result_vals(rates$rate_se), r2 = format_r2(rates$rate_r2), p_val = format_pval(rates$rate_p, output_type = "subtitle"))
-    )
-  }
-
-  ggplot(data = df, aes(x = date, y = mean_site_cumu)) +
-    geom_errorbar(aes(x = date, ymin = mean_site_cumu - se_site_cumu, ymax = mean_site_cumu + se_site_cumu), width = width, color = "#333333") +
-    geom_point(color = "#333333") +
-    geom_smooth(aes(color = "SET"), method = "lm", formula = y ~ x, fullrange = TRUE, se = TRUE, linewidth = 0.6, color = "transparent") +
-    geomtextpath::geom_textsmooth(aes(color = "SET", label = "SET"), method = "lm", formula = y ~ x, fullrange = TRUE, se = TRUE, hjust = 0.93) +
-    geomtextpath::geom_textabline(data = lines, aes(slope = scaled_slope, intercept = scaled_int, label = type, color = type), hjust = 0.93) +
-    annotate("text", x = structure(-Inf, class = "Date"), y = Inf, label = paste0("Long-term SLR: ", whoi_slr$whoi_slr_long_formatted$slr_rate_long), color = "#1B5570", vjust = 3, hjust = 0, family = "Lora") +
-    annotate("text", x = structure(-Inf, class = "Date"), y = Inf, label = paste0("Recent SLR: ", whoi_slr$whoi_slr_recent_formatted$slr_rate_recent), color = "#17A4B6", vjust = 5, hjust = 0, family = "Lora") +
-
-    labs(title = unique(df$site),
-         subtitle = eq) +
-    scale_color_manual(values = c("#1B5570", "#17A4B6", "yellow", "green", "red", "#333333")) +
-    scale_x_date(expand = c(0,0), limits = c(first_date - 200, last_date + 200), date_breaks = "1 year", date_labels = "%Y") +
-    scale_y_continuous(name = "Surface elevation change (mm)") +
-    theme_minimal(base_size = base_size) +
-    theme(text = element_text(colour = mid_text, family = "BrandonText", lineheight = 1.1),
-          plot.title = element_text(family = "Lora", color = dark_text, size = rel(1.6), margin = margin(12, 0, 4, 0)),
-          plot.subtitle = element_text(color = dark_text, family = "Lora", size = rel(1), margin = margin(4, 0, 2, 0), lineheight = 1.1),
-          axis.text.y = element_text(colour = light_text, size = rel(0.9)),
-          axis.title.y = element_text(color = mid_text, size = base_size, margin = margin(0, 4, 0, 0)),
-          axis.text.x = element_text(colour = mid_text, size = base_size),
-          axis.title.x = element_blank(),
-          legend.position = "none",
-          legend.justification = 1,
-          panel.grid = element_line(colour = "#E8E7E7"),
-          plot.background = element_rect(fill = "#F7F7F7"),
-          plot.caption = element_text(size = rel(0.8), margin = margin(8, 0, 0, 0)),
-          plot.margin = margin(0.25, 0.25, 0.25, 0.25,"cm")) 
-}
-
-plot_fun_slr_current(df = aq_cumu_site, rates = aq_linear_mod_site)
-```
-
-## 11. Plot future SLR
-
-```{r}
-#| label: Plot-future-SLR
-sysfonts::font_add_google("Didact Gothic")
-showtext::showtext_auto()
-
-whoi_future_slr <- readRDS(here::here("data", "woods_hole_future_slr.Rds"))
-
-whoi_future_slr_lines <- whoi_future_slr$whoi_slr_future_rates %>%
-  mutate(future_slr_lines = map(rsl_rate_mm_yr, ~scale_slr_line(rate = .x, int = aq_linear_mod_site$intc, first_date = first(aq_cumu_site$date)))) %>%
-  select(scenario_name, future_slr_lines) %>%
-  mutate(scaled_slope = map_dbl(future_slr_lines, ~.x$scaled_slope),
-         scaled_int = map_dbl(future_slr_lines, ~.x$scaled_int))
-
-ggplot(data = aq_cumu_site, aes(x = date, y = mean_site_cumu))+
-  geom_point() +
-  geom_errorbar(aes(x = date, ymin = mean_site_cumu - se_site_cumu, ymax = mean_site_cumu + se_site_cumu)) +
-  stat_smooth(method = "lm", formula = y ~ x) +
-  geom_abline(data = whoi_future_slr_lines, aes(slope = scaled_slope, intercept = scaled_int, color = scenario_name)) +
-  geom_text(data = aq_linear_mod_site_formatted, aes(x = as.Date("2020-01-01"), y = Inf, label = paste0("Rate: ", linear_rate, " (", SE, ")\n", "R2: ", R2, ", p: ", p_val)), vjust = 1.5) +
-  labs(title = paste0("Aquinnah")) +
-  ylab("Cumulative surface elevation change (mm)") +
-  xlab("Date") +
-  theme(text = element_text(family = "Didact Gothic")) +
-  theme_mv_sets()
+saveRDS(aquinnah, here::here("data", "aquinnah.rds"))
 ```

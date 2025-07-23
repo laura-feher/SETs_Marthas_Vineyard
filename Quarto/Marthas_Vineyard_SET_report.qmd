@@ -1,0 +1,39 @@
+---
+title: "Marthas Vineyard SET report"
+author: "Laura Feher"
+format: html
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+source(here::here("R","format_mv_results.R"))
+felix_neck <- read_rds(here::here("data", "felix_neck.rds"))
+mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "simple SET plot")
+
+mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "SLR no labels")
+
+mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "SLR labeled")
+
+mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "future SLR no labels")
+
+mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "future SLR labeled")
+
+aquinnah <- read_rds(here::here("data", "aquinnah.rds"))
+mv_plot(site_df = aquinnah$aq_cumu_site, site_rate_df = aquinnah$aq_linear_mod_site, plot_type = "simple SET plot")
+
+mv_plot(site_df = aquinnah$aq_cumu_site, site_rate_df = aquinnah$aq_linear_mod_site, plot_type = "SLR no labels")
+
+mv_plot(site_df = aquinnah$aq_cumu_site, site_rate_df = aquinnah$aq_linear_mod_site, plot_type = "SLR labeled")
+
+mv_plot(site_df = aquinnah$aq_cumu_site, site_rate_df = aquinnah$aq_linear_mod_site, plot_type = "future SLR no labels")
+
+mv_plot(site_df = aquinnah$aq_cumu_site, site_rate_df = aquinnah$aq_linear_mod_site, plot_type = "future SLR labeled")
+```
