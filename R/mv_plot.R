@@ -20,6 +20,7 @@
 #'
 #' @importFrom sysfonts font_add_google
 #' @importFrom showtext showtext_auto
+#' @importFrom showtext showtext_opts
 #' @importFrom colorspace lighten
 #'
 #' @returns a ggplot object
@@ -35,7 +36,8 @@ mv_plot <- function(site_df, site_rate_df, plot_type) {
   # Setup defaults for all plots
   ## Load roboto condensed font
   sysfonts::font_add_google("Roboto Condensed")
-  showtext::showtext_auto()
+  # showtext::showtext_opts(dpi = 96)
+  showtext::showtext_auto(enable = TRUE)
   
   ## Set plot theme & colors
   ggthemr::ggthemr('flat', layout = "clear", type = "outer")
@@ -58,25 +60,29 @@ mv_plot <- function(site_df, site_rate_df, plot_type) {
   
   # Setup 'base' plot - a simple plot of just SET data + rate of change
   SET_base_plot <- ggplot(data = site_df, aes(x = date, y = mean_site_cumu)) +
-    geom_smooth(method = "lm", formula = y ~ x, fullrange = TRUE, se = FALSE, color = base_color) +
-    geom_errorbar(aes(x = date, ymin = mean_site_cumu - se_site_cumu, ymax = mean_site_cumu + se_site_cumu), width = width, color = base_color) +
-    geom_point(color = base_color, size = 2, shape = 21, fill = colorspace::lighten(base_color, amount = 0.7)) +
-    geom_text(data = SET_rate_lab, aes(x = first_date + (0.001 * as.numeric(first_date)), y = Inf, label = paste0("Rate: ", linear_rate, " mm/yr\n")), vjust = 1.5, hjust = 0, size = 11/.pt, family = "Roboto Condensed") +
-    geom_text(data = SET_rate_lab, aes(x = first_date + (0.001 * as.numeric(first_date)), y = Inf, label =  paste("list(", R2, ",", p_val, ")")), vjust = 3.5, hjust = 0, parse = TRUE, size = 11/.pt, family = "Roboto Condensed") +
+    geom_smooth(method = "lm", formula = y ~ x, fullrange = TRUE, se = FALSE, color = base_color, linewidth = 0.4) +
+    geom_errorbar(aes(x = date, ymin = mean_site_cumu - se_site_cumu, ymax = mean_site_cumu + se_site_cumu), linewidth = 0.3, width = width, color = base_color) +
+    geom_point(color = base_color, shape = 21, fill = colorspace::lighten(base_color, amount = 0.7), stroke = 0.4) +
+    geom_text(data = SET_rate_lab, aes(x = first_date + (0.001 * as.numeric(first_date)), y = Inf, label = paste0("Rate: ", linear_rate, " mm/yr\n")), vjust = 1.2, hjust = 0, size = 6, family = "Roboto Condensed") +
+    geom_text(data = SET_rate_lab, aes(x = first_date + (0.001 * as.numeric(first_date)), y = Inf, label =  paste("list(", R2, ",", p_val, ")")), vjust = 2.5, hjust = 0, parse = TRUE, size = 6, family = "Roboto Condensed") +
     labs(title = unique(site_df$site), subtitle = "Marsh Surface elevation change") +
     scale_x_date(expand = c(0,0), limits = c(first_date - x_adj_factor, last_date + x_adj_factor), date_breaks = "1 year", date_labels = "%Y") +
     scale_y_continuous(name = "Surface elevation change (mm)") +
     theme(text = element_text(family = "Roboto Condensed", color = base_color),
-          plot.title = element_text(size = rel(1.6), margin = margin(12, 0, 8, 0)),
+          plot.title = element_text(size = rel(1.6), margin = margin(2, 0, 2, 0)),
+          plot.subtitle = element_text(size = rel(1.4)),
+          plot.margin = margin(2, 2, 2, 2),
           panel.border = element_rect(fill = NA, color = base_color),
           panel.background = element_rect(fill = panel_color),
-          axis.text.y = element_text(size = rel(0.9)),
-          axis.title.y = element_text(size = 12),
-          axis.text.x = element_text(size = 12),
+          panel.grid = element_line(linewidth = 0.3),
+          axis.text.y = element_text(size = rel(1.6)),
+          axis.title.y = element_text(size = rel(1.6), lineheight = 0.5),
+          axis.text.x = element_text(size = rel(1.6)),
           axis.title.x = element_blank(),
           legend.position = "none",
-          plot.caption = element_text(size = rel(0.8), margin = margin(8, 0, 0, 0)),
-          plot.margin = margin(0.25, 0.25, 0.25, 0.25,"cm"))
+          legend.text = element_text(size = rel(1.4)),
+          legend.box.margin = margin(-10, 2, 0, 0)
+          )
   
   
   # If plot_type == "simple SET plot", return just the base SET plot
@@ -118,10 +124,9 @@ mv_plot <- function(site_df, site_rate_df, plot_type) {
       select(date, SEC, slr_long, slr_recent, slr_low, slr_int_low, slr_int, slr_int_high, slr_high) %>%
       pivot_longer(., cols = -date, names_to = "rate_type", values_to = "y_val")
     
-    # Set SLR colors, yaxis title, caption, and plot subtitle 
+    # Set SLR colors, yaxis title, and caption 
     slr_palette <- c(base_color, "#14747e", "#1abc9c", "#7fc06e", "#ffcc1b", "#f08e48", "#ff5a67", "#c43060") # https://github.com/ajlende/base16-atlas-scheme
     yaxis_title <- "Surface elevation change &\n Sea-Level Rise (mm)"
-    plot_subtitle <- "Marsh Surface Elevation Change & Sea-Level Rise"
     
     site_name <- unique(site_df$site)
     
@@ -148,27 +153,33 @@ mv_plot <- function(site_df, site_rate_df, plot_type) {
                             legend.position = "bottom",
                             legend.direction = "horizontal",
                             legend.title = element_blank(),
-                            plot.caption.position = "plot",
-                            plot.caption = ggtext::element_textbox_simple(hjust = 0))
+                            legend.key.spacing.y = unit(-3, "pt")#,
+                            #plot.caption.position = "plot",
+                            #plot.caption = ggtext::element_textbox_simple(hjust = 0)
+                            )
     
     
     if (plot_type %in% c("SLR no labels", "SLR labeled")) {
       
-      new_smooth <- geom_smooth(data = woods_hole_slr_lines %>% filter(rate_type %in% c("SEC", "slr_long", "slr_recent")), aes(x = date, y = y_val, color = rate_type), method = "lm", formula = y ~ x, fullrange = TRUE, se = FALSE)
+      new_smooth <- geom_smooth(data = woods_hole_slr_lines %>% filter(rate_type %in% c("SEC", "slr_long", "slr_recent")), aes(x = date, y = y_val, color = rate_type), method = "lm", formula = y ~ x, fullrange = TRUE, se = FALSE, linewidth = 0.4)
       plot_caption <- plot_caption_slr
-      scale_colors <- scale_color_manual(values = slr_palette[1:3], breaks = c("SEC", "slr_long", "slr_recent"), labels = c("SEC", "Long-term SLR", "Recent SLR"))
+      plot_subtitle <- "Marsh Surface Elevation Change & Sea-Level Rise"
+      scale_colors <- scale_color_manual(values = slr_palette[1:3], breaks = c("SEC", "slr_long", "slr_recent"), labels = c("Marsh SEC   ", "Long-term SLR   ", "Recent SLR   "))
       
     } else if (plot_type %in% c("future SLR no labels", "future SLR labeled")) {
       
-      new_smooth <- geom_smooth(data = woods_hole_slr_lines, aes(x = date, y = y_val, color = rate_type), method = "lm", formula = y ~ x, fullrange = TRUE, se = FALSE)
+      new_smooth <- geom_smooth(data = woods_hole_slr_lines %>% filter(rate_type %in% c("SEC", "slr_low", "slr_int_low", "slr_int", "slr_int_high", "slr_high")), aes(x = date, y = y_val, color = rate_type), method = "lm", formula = y ~ x, fullrange = TRUE, se = FALSE, linewidth = 0.4)
       plot_caption <- plot_caption_future_slr
-      scale_colors <- scale_color_manual(values = slr_palette, breaks = c("SEC", "slr_long", "slr_recent", "slr_low", "slr_int_low", "slr_int", "slr_int_high", "slr_high"),
-                                         labels = c("SEC", "Long-term SLR", "Recent SLR", "Future Low SLR", "Future Int-Low SLR", "Future Int SLR", "Future Int-High SLR", "Future High SLR"))
+      plot_subtitle <- "Marsh Surface Elevation Change & Future Sea-Level Rise"
+      scale_colors <- scale_color_manual(values = slr_palette[c(1,4:8)], breaks = c("SEC", "slr_low", "slr_int_low", "slr_int", "slr_int_high", "slr_high"),
+                                         labels = c("Marsh SEC", "Future Low SLR", "Future Int-Low SLR", "Future Int SLR", "Future Int-High SLR", "Future High SLR"))
     }
     
     
     if (plot_type %in% c("SLR no labels", "future SLR no labels")) {
       scale_y <- scale_y_continuous(name = yaxis_title)
+      slr_plot_theme <- slr_plot_theme +
+       theme(plot.margin = margin(2, 20, 2, 2)) # expand right-side margin so that legend labels don't get cut off
     }
     
     
@@ -196,8 +207,8 @@ mv_plot <- function(site_df, site_rate_df, plot_type) {
         scale_y <- scale_y_continuous(name = yaxis_title, sec.axis = sec_axis(~ ., labels = slr_line_labels %>% filter(rate_type %in% c("SEC", "slr_long", "slr_recent")) %>% pull(line_label_color),
                                                                               breaks = slr_line_labels %>% filter(rate_type %in% c("SEC", "slr_long", "slr_recent")) %>% pull(y_val)))
       } else if (plot_type == "future SLR labeled") {
-        scale_y <- scale_y_continuous(name = yaxis_title, sec.axis = sec_axis(~ ., labels = slr_line_labels %>% pull(line_label_color),
-                                                                              breaks = slr_line_labels %>% pull(y_val)))
+        scale_y <- scale_y_continuous(name = yaxis_title, sec.axis = sec_axis(~ ., labels = slr_line_labels %>% filter(rate_type %in% c("SEC", "slr_low", "slr_int_low", "slr_int", "slr_int_high", "slr_high")) %>% pull(line_label_color),
+                                                                              breaks = slr_line_labels %>% filter(rate_type %in% c("SEC", "slr_low", "slr_int_low", "slr_int", "slr_int_high", "slr_high")) %>% pull(y_val)))
       }
     }
     
@@ -208,7 +219,8 @@ mv_plot <- function(site_df, site_rate_df, plot_type) {
       ggedit::rgg(., oldGeom = "point", oldGeomIdx = 3, newLayer = SET_points) +
       scale_y +
       scale_colors +
-      labs(subtitle = plot_subtitle, caption = plot_caption) +
+      labs(subtitle = plot_subtitle#, caption = plot_caption
+           ) +
       slr_plot_theme
     
     return(slr_plot)
