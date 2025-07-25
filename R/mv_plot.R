@@ -92,18 +92,21 @@ mv_plot <- function(site_df, site_rate_df, plot_type) {
     # Get Woods Hole SLR data
     woods_hole_slr <- read_rds(here::here("data", "woods_hole_slr.rds"))
     
+    # Gather the SEC, long-term, recent, and future SLR rates into a single df
     woods_hole_slr_rates <- site_rate_df %>% 
       ungroup() %>% 
       filter(term == "date_num") %>% 
       select("SEC" = estimate) %>%
-      bind_cols(., woods_hole_slr$whoi_slr_long %>% 
-                  select("slr_long" = slr_rate)) %>%
-      bind_cols(., woods_hole_slr$whoi_slr_recent %>%
-                  select("slr_recent" = slr_rate)) %>%
-      bind_cols(., woods_hole_slr$whoi_slr_future_rates %>%
+      bind_cols(., woods_hole_slr$woods_hole_slr_long %>% 
+                  select("slr_long" = MSL.Trends.mm.yr.)) %>%
+      bind_cols(., woods_hole_slr$woods_hole_slr_recent %>%
+                  filter(term == "yr") %>%
+                  select("slr_recent" = estimate)) %>%
+      bind_cols(., woods_hole_slr$woods_hole_slr_future %>%
                   select(scenario_name, rsl_rate_mm_yr) %>%
                   pivot_wider(., names_from = scenario_name, values_from = rsl_rate_mm_yr, names_prefix = "slr_"))
     
+    # Create lines for each rate that span the xaxis range of the plot
     woods_hole_slr_lines <- data.frame(date = seq(first_date - x_adj_factor, last_date + x_adj_factor, by = 1)) %>%
       bind_cols(., woods_hole_slr_rates) %>%
       bind_cols(., site_rate_df %>% 
@@ -116,7 +119,7 @@ mv_plot <- function(site_df, site_rate_df, plot_type) {
       pivot_longer(., cols = -date, names_to = "rate_type", values_to = "y_val")
     
     # Set SLR colors, yaxis title, caption, and plot subtitle 
-    slr_palette <- c(base_color, "#14747e", "#1abc9c", "#7fc06e", "#ffcc1b", "#f08e48", "#ff5a67", "#c43060")
+    slr_palette <- c(base_color, "#14747e", "#1abc9c", "#7fc06e", "#ffcc1b", "#f08e48", "#ff5a67", "#c43060") # https://github.com/ajlende/base16-atlas-scheme
     yaxis_title <- "Surface elevation change &\n Sea-Level Rise (mm)"
     plot_subtitle <- "Marsh Surface Elevation Change & Sea-Level Rise"
     
@@ -142,11 +145,11 @@ mv_plot <- function(site_df, site_rate_df, plot_type) {
     
     # Define updated theme elements
     slr_plot_theme <- theme(axis.text.y.right = ggtext::element_markdown(),
-            legend.position = "bottom",
-            legend.direction = "horizontal",
-            legend.title = element_blank(),
-            plot.caption.position = "plot",
-            plot.caption = ggtext::element_textbox_simple(hjust = 0))
+                            legend.position = "bottom",
+                            legend.direction = "horizontal",
+                            legend.title = element_blank(),
+                            plot.caption.position = "plot",
+                            plot.caption = ggtext::element_textbox_simple(hjust = 0))
     
     
     if (plot_type %in% c("SLR no labels", "SLR labeled")) {
@@ -154,9 +157,9 @@ mv_plot <- function(site_df, site_rate_df, plot_type) {
       new_smooth <- geom_smooth(data = woods_hole_slr_lines %>% filter(rate_type %in% c("SEC", "slr_long", "slr_recent")), aes(x = date, y = y_val, color = rate_type), method = "lm", formula = y ~ x, fullrange = TRUE, se = FALSE)
       plot_caption <- plot_caption_slr
       scale_colors <- scale_color_manual(values = slr_palette[1:3], breaks = c("SEC", "slr_long", "slr_recent"), labels = c("SEC", "Long-term SLR", "Recent SLR"))
-    
+      
     } else if (plot_type %in% c("future SLR no labels", "future SLR labeled")) {
-    
+      
       new_smooth <- geom_smooth(data = woods_hole_slr_lines, aes(x = date, y = y_val, color = rate_type), method = "lm", formula = y ~ x, fullrange = TRUE, se = FALSE)
       plot_caption <- plot_caption_future_slr
       scale_colors <- scale_color_manual(values = slr_palette, breaks = c("SEC", "slr_long", "slr_recent", "slr_low", "slr_int_low", "slr_int", "slr_int_high", "slr_high"),
@@ -167,10 +170,10 @@ mv_plot <- function(site_df, site_rate_df, plot_type) {
     if (plot_type %in% c("SLR no labels", "future SLR no labels")) {
       scale_y <- scale_y_continuous(name = yaxis_title)
     }
-     
-   
+    
+    
     if (plot_type %in% c("SLR labeled", "future SLR labeled")) {
-        
+      
       slr_line_labels <- woods_hole_slr_lines %>%
         group_by(rate_type) %>% 
         top_n(1, date) %>%
@@ -191,14 +194,13 @@ mv_plot <- function(site_df, site_rate_df, plot_type) {
       
       if (plot_type == "SLR labeled") {
         scale_y <- scale_y_continuous(name = yaxis_title, sec.axis = sec_axis(~ ., labels = slr_line_labels %>% filter(rate_type %in% c("SEC", "slr_long", "slr_recent")) %>% pull(line_label_color),
-                                                                                   breaks = slr_line_labels %>% filter(rate_type %in% c("SEC", "slr_long", "slr_recent")) %>% pull(y_val)))
+                                                                              breaks = slr_line_labels %>% filter(rate_type %in% c("SEC", "slr_long", "slr_recent")) %>% pull(y_val)))
       } else if (plot_type == "future SLR labeled") {
         scale_y <- scale_y_continuous(name = yaxis_title, sec.axis = sec_axis(~ ., labels = slr_line_labels %>% pull(line_label_color),
                                                                               breaks = slr_line_labels %>% pull(y_val)))
       }
     }
     
-
     slr_plot <- SET_base_plot %>%
       ggedit::remove_geom("text", 4) %>%
       ggedit::rgg(., oldGeom = "smooth", oldGeomIdx = 1, newLayer = new_smooth) %>%

@@ -1,39 +1,95 @@
 ---
 title: "Marthas Vineyard SET report"
-author: "Laura Feher"
+subtitle: "Produced for Martha’s Vineyard Commission" 
+date: "`r Sys.Date()`"
+author:
+  - name: Laura Feher
+    affiliations: 
+    - name: NPS NCBN I&M Network
+bibliography: references.bib
 format: html
+toc: true 
+code-fold: true
+code-overflow: wrap
+embed-resources: true
+execute:
+  message: false
+  warning: false
 editor: visual
 ---
 
-## Quarto
+```{r}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(here)
+library(ggthemr)
+library(ggedit)
+library(ggtext)
 
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+map(list.files(here::here("R"), pattern = "\\.R$", full.names = TRUE), function(x)
+  source(file = x, local = knitr::knit_global()))
 
-## Running Code
+aquinnah <- readRDS("C:/Users/lfeher/OneDrive - DOI/SETs_Marthas_Vineyard/data/aquinnah.rds")
 
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+felix_neck <- readRDS("C:/Users/lfeher/OneDrive - DOI/SETs_Marthas_Vineyard/data/felix_neck.rds")
+
+woods_hole_slr <- readRDS("C:/Users/lfeher/OneDrive - DOI/SETs_Marthas_Vineyard/data/woods_hole_slr.rds")
+```
+
+## Methods: Data Analyses
+
+Prior to data analyses, we subtracted the elevation reading of each pin on each sampling date from its initial value to determine cumulative elevation change [@lynch2015]. The pin-level elevation readings for each measurement date were then averaged across each of the four bearings on each benchmark, then the bearing-level values were averaged to the plot level, and finally the plot-level values were averaged to the site level. To estimate the rate of marsh surface elevation change at each site, we used a simple linear regression model where the independent variable was the time since the first measurement and the dependent variable was cumulative marsh surface elevation change.
+
+## Methods: Relative Sea-Level Rise
+
+For the long-term rate of relative sea-level rise (RSLR; also known as local sea-level rise), we obtained the rate published by NOAA for the nearby tide gauge at `r woods_hole_slr$woods_hole_slr_long$Station.Name` [@NOAAtidesWH] for the entire period of record from `r woods_hole_slr$woods_hole_slr_long$First.Year` to `r woods_hole_slr$woods_hole_slr_long$Last.Year`. We estimated a recent rate of RSLR using a linear regression applied to the monthly mean sea-level data with the average seasonal cycle removed by subsetting the data from the Woods Hole gauge for the most recent tidal epoch (`r year(unique(woods_hole_slr$woods_hole_slr_recent$data[[1]]$min_date))` -`r year(unique(woods_hole_slr$woods_hole_slr_recent$data[[1]]$max_date))`).
+
+We estimated future projected RSLR rates using the five alternative SLR scenarios produced by @sweet2017 for the 4th National Climate Assessment. The Low, Intermediate-Low, Intermediate, Intermediate-High, and High SLR scenarios correspond respectively to global mean sea level increases of 0.3 m, 0.5 m, 1.0 m, 1.5 m, and 2.0 m by 2100. To approximate the RSLR rate by 2100 under each of the five scenarios, we used the data provided by @sweet2017 to estimate future RSLR rates for the 2090-2100 decade from the Woods Hole RSLR projections.
+
+## Results
+
+The rate of marsh surface elevation change at Aquinnah was `r aquinnah$aq_linear_mod_site %>% filter(term == "date_num") %>% pull(linear_rate)` mm/yr (*r*^2^ = `r aquinnah$aq_linear_mod_site %>% filter(term == "date_num") %>% pull(R2)`, *p* `r aquinnah$aq_linear_mod_site %>% filter(term == "date_num") %>% mutate(p = format_pval(p.value, output_type = "subtitle")) %>% pull(p)` ) for the period between `r year(first(aquinnah$aq_cumu_site$date))` to `r year(last(aquinnah$aq_cumu_site$date))` . The rate of marsh surface elevation change at Felix Neck was `r felix_neck$fn_linear_mod_site %>% filter(term == "date_num") %>% pull(linear_rate)` mm/yr (*r*^2^ = `r felix_neck$fn_linear_mod_site %>% filter(term == "date_num") %>% pull(R2)`, *p* `r felix_neck$fn_linear_mod_site %>% filter(term == "date_num") %>% mutate(p = format_pval(p.value, output_type = "subtitle")) %>% pull(p)` ) for the period between `r year(first(felix_neck$fn_cumu_site$date))` to `r year(last(felix_neck$fn_cumu_site$date))` . The long-term rate of RSLR at the nearby Woods Hole tide gauge was `r woods_hole_slr$woods_hole_slr_long$MSL.Trends.mm.yr.` ± `r woods_hole_slr$woods_hole_slr_long$Perc.95.CI.mm.yr.` mm/yr, whereas the recent rate of RSLR was `r woods_hole_slr$woods_hole_slr_recent %>% filter(term == "yr") %>% mutate(recent_slr = paste0(format_result_vals(estimate), " ± ", format_result_vals(std.error))) %>% pull(recent_slr)` mm/yr. Future predicted rates of RSLR for the Woods Hole gauge were `r woods_hole_slr$woods_hole_slr_future %>% pull(rsl_rate_mm_yr) %>% knitr::combine_words(.)` mm/yr for the low, intermediate-low, intermediate, intermediate-high, and high sea-level rise scenarios, respectively.
 
 ```{r}
-source(here::here("R","format_mv_results.R"))
-felix_neck <- read_rds(here::here("data", "felix_neck.rds"))
-mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "simple SET plot")
+#| label: fig-plot
+#| fig-cap: "P"
 
-mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "SLR no labels")
-
-mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "SLR labeled")
-
-mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "future SLR no labels")
-
-mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "future SLR labeled")
-
-aquinnah <- read_rds(here::here("data", "aquinnah.rds"))
 mv_plot(site_df = aquinnah$aq_cumu_site, site_rate_df = aquinnah$aq_linear_mod_site, plot_type = "simple SET plot")
+```
 
+```{r}
+mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "simple SET plot")
+```
+
+```{r}
+mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "SLR no labels")
+```
+
+```{r}
+mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "SLR labeled")
+```
+
+```{r}
+mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "future SLR no labels")
+```
+
+```{r}
+mv_plot(site_df = felix_neck$fn_cumu_site, site_rate_df = felix_neck$fn_linear_mod_site, plot_type = "future SLR labeled")
+```
+
+```{r}
 mv_plot(site_df = aquinnah$aq_cumu_site, site_rate_df = aquinnah$aq_linear_mod_site, plot_type = "SLR no labels")
+```
 
+```{r}
 mv_plot(site_df = aquinnah$aq_cumu_site, site_rate_df = aquinnah$aq_linear_mod_site, plot_type = "SLR labeled")
+```
 
+```{r}
 mv_plot(site_df = aquinnah$aq_cumu_site, site_rate_df = aquinnah$aq_linear_mod_site, plot_type = "future SLR no labels")
+```
 
+```{r}
 mv_plot(site_df = aquinnah$aq_cumu_site, site_rate_df = aquinnah$aq_linear_mod_site, plot_type = "future SLR labeled")
 ```

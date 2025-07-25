@@ -11,12 +11,13 @@ toc: true
 code-fold: true
 code-overflow: wrap
 embed-resources: true
+execute:
+  message: false
+  warning: false
 editor: visual
 ---
 
 ```{r Load packages}
-#| message: false
-#| warning: false
 #| include: false
 
 library(tidyverse)
@@ -26,91 +27,47 @@ library(mgcv)
 library(gratia)
 ```
 
-## 1. Get SLR data from the Woods Hole NOAA gauge
+## 1. Get the most recent long-term SLR rate from NOAA
 
 ```{r}
-#| message: false
-#| warning: false
 
-whoi_slr_data <- as.data.frame(readr::read_csv("https://tidesandcurrents.noaa.gov/sltrends/data/8447930_meantrend.csv", skip = 5, show_col_types = FALSE)) %>%
-  mutate(date = as.Date(paste0(Month, "/", "1/", Year), format = "%m/%d/%Y")) %>%
-  mutate(min_date = min(date),
-         yr = as.numeric(date - min_date)/365.25,
-         Monthly_MSL_m = Monthly_MSL, # rename this column to make it obvious that this is meters
-         Monthly_MSL_mm = Monthly_MSL*1000) %>% # convert to millimeters for comparisons to SET/MH data
-  select(-Monthly_MSL)
+woods_hole_slr_long <- as.data.frame(readr::read_csv("https://tidesandcurrents.noaa.gov/sltrends/data/USStationsLinearSeaLevelTrends.csv", show_col_types = FALSE, name_repair = make.names)) %>%
+  rename_with(., ~str_replace_all(.x, "\\.{2,}", ".")) %>%
+  rename_with(., ~str_replace_all(.x, "X", "Perc")) %>%
+  filter(Station.Name == "Woods Hole, MA")
+
+woods_hole_slr_long
 ```
 
-## 2. Calculate long-term SLR
+## 2. Get SLR data from the Woods Hole NOAA gauge and Calculate recent SLR
 
 ```{r}
-#| message: false
-#| warning: false
-whoi_slr_long <- whoi_slr_data %>%
-        tidyr::nest(data = everything(.)) %>%
-        mutate(model = map(data, ~lm(Monthly_MSL_mm ~ yr, data = .x)),
-               model_summary = map(model, ~summary(.x)),
-               slr_rate = map_dbl(model, ~coefficients(.x)[['yr']]),
-               slr_intc = map_dbl(model, ~coefficients(.x)[['(Intercept)']]),
-               slr_rate_se = map_dbl(model_summary, ~.x$coefficients[['yr', 'Std. Error']]),
-               cis = map(model, ~confint(.x)),
-               lower_ci = map_dbl(cis, ~.x[['yr', '2.5 %']]),
-               upper_ci = map_dbl(cis, ~.x[['yr', '97.5 %']]),
-               min_date = as.Date(unlist(map(data, ~min(.x$date)))),
-               max_date = as.Date(unlist(map(data, ~max(.x$date)))),
-               model_date_x = map(data, ~lm(Monthly_MSL_mm ~ date, data = .x)),
-               slope_date_x = map_dbl(model_date_x, ~coefficients(.x)[['date']]),
-               int_date_x = map_dbl(model_date_x, ~coefficients(.x)[['(Intercept)']])) #%>%
-        # select(model, model_summary, slr_rate, slr_intc, slr_rate_se, lower_ci, upper_ci, min_date, max_date)
 
-whoi_slr_long_formatted <- whoi_slr_long %>%
-         mutate(gauge = "Woods Hole, MA (8447930)",
-                slr_rate_long = paste0(round(slr_rate, 2), " mm/yr"),
-                SE = paste0("± ", round(slr_rate_se, 2))) %>%
-         select(gauge, slr_rate_long, SE, min_date, max_date)
+woods_hole_slr_data <- as.data.frame(readr::read_csv("https://tidesandcurrents.noaa.gov/sltrends/data/8447930_meantrend.csv", skip = 5, show_col_types = FALSE)) 
 
-whoi_slr_long_formatted %>%
-  select(-gauge)
-```
-
-## 3. Calculate recent SLR
-
-```{r}
-#| message: false
-#| warning: false
-
-whoi_slr_recent <- whoi_slr_data %>%
+woods_hole_slr_recent <- woods_hole_slr_data %>%
+  mutate(date = as.Date(paste0(Month, "/", "1/", Year), format = "%m/%d/%Y")) %>% 
   filter(date >= as.Date("2001-01-01") & date <= as.Date("2019-12-31")) %>%
-        tidyr::nest(data = everything(.)) %>%
-        mutate(model = map(data, ~lm(Monthly_MSL_mm ~ yr, data = .x)),
-               model_summary = map(model, ~summary(.x)),
-               slr_rate = map_dbl(model, ~coefficients(.x)[['yr']]),
-               slr_intc = map_dbl(model, ~coefficients(.x)[['(Intercept)']]),
-               slr_rate_se = map_dbl(model_summary, ~.x$coefficients[['yr', 'Std. Error']]),
-               cis = map(model, ~confint(.x)),
-               lower_ci = map_dbl(cis, ~.x[['yr', '2.5 %']]),
-               upper_ci = map_dbl(cis, ~.x[['yr', '97.5 %']]),
-               min_date = as.Date(unlist(map(data, ~min(.x$date)))),
-               max_date = as.Date(unlist(map(data, ~max(.x$date))))) %>%
-        select(model, model_summary, slr_rate, slr_intc, slr_rate_se, lower_ci, upper_ci, min_date, max_date)
-
-whoi_slr_recent_formatted <- whoi_slr_recent %>%
-         mutate(gauge = "Woods Hole, MA (8447930)",
-                slr_rate_recent = paste0(round(slr_rate, 2), " mm/yr"),
-                SE = paste0("± ", round(slr_rate_se, 2))) %>%
-         select(gauge, slr_rate_recent, SE, min_date, max_date)
-
-whoi_slr_recent_formatted %>%
-  select(-gauge)
+  mutate(min_date = min(date),
+         max_date = max(date),
+         yr = as.numeric(date - min_date)/365.25,
+         Monthly_MSL_mm = Monthly_MSL * 1000) %>% # convert to millimeters for comparisons to SET data
+  nest(data = everything(.)) %>%
+  mutate(lm_mod = map(data, ~lm(Monthly_MSL_mm ~ yr, data = .x)),
+         tidied = map(lm_mod, broom::tidy),
+         glanced = map(lm_mod, broom::glance)) %>%
+  unnest(tidied, glanced) 
+  
+woods_hole_slr_recent
 ```
 
-## 4. Get future SLR data from the Sweet et al. 2022 report
+## 3. Get future SLR data from the Sweet et al. 2022 report and calculate future SLR for 2090-2100
 
 ```{r}
 #| message: false
 #| warning: false  
 
-whoi_future_slr_data <- read_csv(
+woods_hole_slr_future <- read_csv(
   here::here(
     "data-raw",
     "Sea_Level_Rise_Datasets_2022",
@@ -118,29 +75,20 @@ whoi_future_slr_data <- read_csv(
   ),
   skip = 17,
   col_select = c("PSMSL Site", "Scenario", "RSL2005 (cm)":"RSL2100 (cm)")
-)
-```
-
-Source: 2022 Technical Report \| Resources – U.S. Sea Level Change <https://earth.gov/sealevel/us/resources/2022-sea-level-rise-technical-report/>
-
-## 5. Calculate future SLR for 2090 - 2100
-
-```{r}
-#| message: false 
-#| #| warning: false  
-
-whoi_future_slr_rates <- whoi_future_slr_data %>% 
+) %>%
   filter(`PSMSL Site` == "WOODS_HOLE" & str_detect(Scenario, "MED")) %>%
   mutate(scenario_name = c("low", "int_low", "int", "int_high", "high")) %>%
   mutate(rsl_2090_mm = `RSL2090 (cm)` * 10, 
          rsl_2100_mm = `RSL2100 (cm)` * 10,
-         rsl_rate_mm_yr = (rsl_2100_mm - rsl_2090_mm)/10) %>%   
-  select(`PSMSL Site`, Scenario, scenario_name, rsl_rate_mm_yr)  
+         rsl_rate_mm_yr = (rsl_2100_mm - rsl_2090_mm)/10)
 
-whoi_future_slr_rates
+woods_hole_slr_future %>%
+  select(`PSMSL Site`, Scenario, scenario_name, rsl_rate_mm_yr)
 ```
 
-## 6. Save SLR data and rates to file
+Source: 2022 Technical Report \| Resources – U.S. Sea Level Change <https://earth.gov/sealevel/us/resources/2022-sea-level-rise-technical-report/>
+
+## 4. Save SLR data and rates to file
 
 ```{r}
 #| message: false
@@ -148,14 +96,11 @@ whoi_future_slr_rates
 
 saveRDS(
   list(
-    "whoi_slr_data" = whoi_slr_data,
-    "whoi_slr_long" = whoi_slr_long,
-    "whoi_slr_long_formatted" = whoi_slr_long_formatted,
-    "whoi_slr_recent" = whoi_slr_recent,
-    "whoi_slr_recent_formatted" = whoi_slr_recent_formatted,
-    "whoi_slr_future_data" = whoi_future_slr_data,
-    "whoi_slr_future_rates" = whoi_future_slr_rates
+    "woods_hole_slr_data" = woods_hole_slr_data,
+    "woods_hole_slr_long" = woods_hole_slr_long,
+    "woods_hole_slr_recent" = woods_hole_slr_recent,
+    "woods_hole_slr_future" = woods_hole_slr_future
   ),
-  here::here("data", "woods_hole_slr.Rds")
+  here::here("data", "woods_hole_slr.rds")
 )
 ```
