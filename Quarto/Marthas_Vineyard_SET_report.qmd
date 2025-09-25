@@ -6,7 +6,7 @@ author:
   - name: Laura Feher
     affiliations: 
     - name: NPS NCBN I&M Network
-    email: lfeher@nps.gov
+    email: laura_feher@nps.gov
     orcid: 0000-0002-5983-6190
 bibliography: references.bib
 format: 
@@ -47,16 +47,18 @@ knitr::opts_chunk$set(
 map(list.files(here::here("R"), pattern = "\\.R$", full.names = TRUE), function(x)
   source(file = x, local = knitr::knit_global()))
 
-aquinnah <- readRDS("C:/Users/lfeher/OneDrive - DOI/SETs_Marthas_Vineyard/data/aquinnah.rds")
+aquinnah <- readRDS(here::here("data", "aquinnah.rds"))
 
 felix_neck <- readRDS("C:/Users/lfeher/OneDrive - DOI/SETs_Marthas_Vineyard/data/felix_neck.rds")
 
 woods_hole_slr <- readRDS("C:/Users/lfeher/OneDrive - DOI/SETs_Marthas_Vineyard/data/woods_hole_slr.rds")
 ```
 
+**NOTE:** The SET-MH approach has been widely used for documenting and interpreting trends in surface elevation dynamics over time and assessing wetland vulnerability to sea-level rise. Thus, the methods used here for the analyses of SET and sea-level rise data follow the standard conventions outlined in the following peer reviewed literature: @cahoon2002a; @cahoon2002b; @cahoon2006; @cahoon2024; @callaway2013; @lynch2015.
+
 ## Methods: Data Analyses
 
-Prior to data analyses, we subtracted the elevation reading of each pin on each sampling date from its initial value to determine cumulative elevation change [@lynch2015]. The pin-level elevation readings for each measurement date were then averaged across each of the four bearings on each benchmark, then the bearing-level values were averaged to the plot level, and finally the plot-level values were averaged to the site level. To estimate the rate of marsh surface elevation change at each site, we used a simple linear regression model where the independent variable was the time since the first measurement and the dependent variable was site-level cumulative marsh surface elevation change.
+Prior to data analyses, we subtracted the elevation reading of each pin on each sampling date from its initial value to determine cumulative elevation change [@lynch2015]. The pin-level elevation readings for each measurement date were then averaged across each of the four bearings on each benchmark, then the bearing-level values were averaged to the plot level, and finally the plot-level values were averaged to the site level. To estimate the rate of marsh surface elevation change at each site, we used a simple linear regression model where the independent variable was the time since the first measurement and the dependent variable was site-level cumulative marsh surface elevation change as outlined in @feher2024 and @russell2022.
 
 ## Methods: Relative Sea-Level Rise
 

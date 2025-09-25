@@ -52,3 +52,9 @@ rsconnect/
 data/**
 
 /.quarto/
+Quarto/Aquinnah_qaqc_transform.qmd
+Quarto/Felix_Neck_qaqc_transform.qmd
+Outputs/Felix_Neck_qaqc_transform.html
+Outputs/Aquinnah_qaqc_transform.html
+data-raw/Aquinnah 2025-6-3.xlsx
+data-raw/Felix Neck 2025-5-15.xlsx
